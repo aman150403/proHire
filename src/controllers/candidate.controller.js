@@ -56,7 +56,7 @@ async function candidateLogin(req, res) {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            res.status(400).json({
+            return res.status(400).json({
                 success: false,
                 message: 'Both the fields are required',
             });
@@ -65,7 +65,7 @@ async function candidateLogin(req, res) {
         const candidate = await Candidate.findOne({ email });
 
         if (!candidate) {
-            res.status(400).json({
+            return res.status(400).json({
                 success: false,
                 message: 'Candidate not found',
             })
@@ -74,7 +74,7 @@ async function candidateLogin(req, res) {
         const isMatch = await candidate.comparePassword(password);
 
         if (!isMatch) {
-            res.status(400).json({
+            return res.status(400).json({
                 success: false,
                 message: 'Invalid Credentials',
             })
@@ -82,7 +82,7 @@ async function candidateLogin(req, res) {
 
         const accessToken = await candidate.generateAccessToken();
 
-        const loggedInUser = await Candidate.findOne({ email }).select('-password ');
+        const loggedInUser = await Candidate.findOne({ email }).select('-password');
 
         const options = {
             httpOnly: true,
@@ -199,7 +199,7 @@ async function updateCandidateProfile(req, res) {
 
         let profilePicture;
 
-        const profilePicturePath = req.files?.profilePicture[0]?.path;
+        const profilePicturePath = req.file?.path;
         if (profilePicturePath) {
             profilePicture = await uploadOnCloudinary(profilePicturePath);
         }

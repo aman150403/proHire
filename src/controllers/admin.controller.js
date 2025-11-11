@@ -65,7 +65,7 @@ async function getAllCandidates(req, res) {
     const result = filterAndPaginate({
         model: Candidate,
         query: req.query,
-        searchableFiellds: [
+        searchableFields: [
             'fullName',
             'email',
             'phoneNo',

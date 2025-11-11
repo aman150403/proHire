@@ -1,5 +1,4 @@
-import mongoose from 'mongoose';
-import { model, Schema } from 'mongoose';
+import mongoose, { model, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -87,12 +86,12 @@ const candidateSchema = new Schema(
     }
 )
 
-candidateSchema.pre('save', async function (next) {
-    if(!this.isModified(this.password)) return next();
+candidateSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
 
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
-})
 
 candidateSchema.methods.generateAccessToken = function(){
     return jwt.sign(
@@ -102,7 +101,7 @@ candidateSchema.methods.generateAccessToken = function(){
             email: this.email,
             role: this.role
         }, 
-        process.env.ACCESS_TOKEN_SECRET_KEY,
+        process.env.ACCESS_TOKEN_SECRET,
         {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }
