@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Candidate } from "../models/candidate.model.js";
+import { Job } from "../models/job.model.js"
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 
 async function candidateRegistration(req, res) {
@@ -370,75 +371,72 @@ async function deleteCandidateAccount(req, res) {
 
 async function applyToJob(req, res) {
     try {
-        const { id } = req.user;
-        const { jobId } = req.body;
+        const { id: candidateId } = req.user;
+        const { jobId } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid) {
+        // Validate jobId
+        if (!mongoose.Types.ObjectId.isValid(jobId)) {
             return res.status(400).json({
-                message: 'JobId is invalid',
+                message: 'Invalid Job ID',
                 success: false
-            })
-        }
-
-        const job = await Job.findById(jobId);
-        if (!job) {
-            return res.status(404).json({
-                success: false,
-                message: 'Job not found'
             });
         }
 
-        if (!id) {
-            return res.status(400).json({
-                message: 'Candidate is not loggedIn',
+        // Find job
+        const job = await Job.findById(jobId);
+        if (!job) {
+            return res.status(404).json({
+                message: 'Job not found',
                 success: false
-            })
+            });
         }
 
-        const candidate = await Candidate.findById(id);
-
+        // Find candidate
+        const candidate = await Candidate.findById(candidateId);
         if (!candidate) {
-            return res.status(400).json({
+            return res.status(404).json({
                 message: 'Candidate not found',
                 success: false
-            })
+            });
         }
 
-        const hasApplied = await condidate.appliedJobs.some(
-            app => app.jobId.toString() === jobId
-        )
-
+        // Check if candidate already applied
+        const hasApplied = candidate.appliedJobs.some(
+            (app) => app.jobId.toString() === jobId
+        );
         if (hasApplied) {
-            return res.status(404).json({
-                message: 'Candidate has already applied for this job',
+            return res.status(400).json({
+                message: 'You have already applied for this job',
                 success: false
-            })
+            });
         }
 
+        // Add job to candidate's appliedJobs
         candidate.appliedJobs.push({
             jobId,
             appliedAt: new Date(),
             status: 'applied'
-        })
-        await candidate.save()
+        });
+        await candidate.save();
 
+        // Add candidate to job's applicants
         job.applicants.push({
             candidateId,
             appliedAt: new Date(),
             status: 'applied'
-        })
-        await job.save()
+        });
+        await job.save();
 
         return res.status(200).json({
-            message: 'Applied for job successfully',
-            success: true,
-        })
+            message: 'Applied to job successfully',
+            success: true
+        });
     } catch (error) {
         return res.status(500).json({
             message: 'Something went wrong',
-            success: true,
+            success: false,
             error: error.message
-        })
+        });
     }
 }
 

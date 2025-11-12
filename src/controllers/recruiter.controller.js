@@ -1,5 +1,6 @@
 import { Job } from "../models/job.model.js";
 import { Recruiter } from "../models/recruiter.model.js";
+import {uploadOnCloudinary} from '../utils/cloudinary.js'
 
 async function registerRecruiter(req, res) {
     try {
@@ -62,7 +63,7 @@ async function loginRecruiter(req, res) {
             })
         }
 
-        const recruiter = await Recruiter.findOne({ email }).select('-password -accessToken');
+        const recruiter = await Recruiter.findOne({ email })
 
         if (!recruiter) {
             return res.status(404).json({
@@ -70,9 +71,9 @@ async function loginRecruiter(req, res) {
                 success: false
             })
         }
-
+        
         const isMatch = await recruiter.comparePassword(password);
-
+        
         if (!isMatch) {
             return res.status(400).json({
                 message: 'Invalid  credentials',
@@ -113,11 +114,13 @@ async function loginRecruiter(req, res) {
 
 async function updateRecruiterProfile(req, res,) {
     try {
+        const recruiterId = req.user.id;
+
         const forbiddenFields = ['name', 'email', 'company', 'phoneNo']
 
         for (const field of forbiddenFields) {
             if (field in req.body) {
-                return res.status(404).json({
+                return res.status(403).json({
                     message: `${field} can not be updated once entered`,
                     success: false
                 })
@@ -126,20 +129,20 @@ async function updateRecruiterProfile(req, res,) {
 
         const updateFields = {}
 
-        if (req.body.bio) updateData.bio = req.body.bio;
-        if (req.body.designation) updateData.designation = req.body.designation;
+        if (req.body.bio) updateFields.bio = req.body.bio;
+        if (req.body.designation) updateFields.designation = req.body.designation;
 
         const profilePicturePath = req.file?.path;
         if (profilePicturePath) {
-            const uploaded = await uploadOnCloudinay(profilePicturePath);
+            const uploaded = await uploadOnCloudinary(profilePicturePath);
             if (uploaded?.url) {
-                updateData.profilePicture = uploaded.url;
+                updateFields.profilePicture = uploaded.url;
             }
         }
 
         const updatedRecruiter = await Recruiter.findByIdAndUpdate(
             recruiterId,
-            { $set: updateData },
+            { $set: updateFields },
             { new: true, runValidators: true }
         ).select('-password');
 
@@ -353,7 +356,7 @@ async function createJob(req, res) {
                 message: 'Only recruiters can post jobs',
             });
         }
-
+        
         const newJob = await Job.create({
             company,
             title,
@@ -489,12 +492,13 @@ async function deleteJob(req, res) {
 async function getApplicantsForJob(req, res) {
     try {
         const recruiterId = req.user.id;
+        const { id: jobId } = req.params;
 
-        const jobApplicants = await Job.find({ postedBy: recruiterId })
+        const jobApplicants = await Job.findOne({_id: jobId, postedBy: recruiterId})
             .select('title applicants')
             .populate('applicants.candidateId', 'fullName email phoneNo resume profilePicture')
 
-        if (!jobApplicants || jobApplicants.length() == 0) {
+        if (!jobApplicants || jobApplicants.length == 0) {
             return res.status(400).json({
                 message: 'There are no jobs posted by this recruiter',
                 success: false
