@@ -1,44 +1,50 @@
 import { Job } from "../models/job.model.js";
 
 async function getAllJobs(req, res) {
-    const { jobType, location, skills } = req.body;
+    try {
+        const { jobType, location, skills } = req.body;
 
-    const query = {
-        isActive: true
+        const query = { isActive: true };
+
+        // Case-insensitive regex for jobType and location
+        if (jobType) query.jobType = { $regex: jobType, $options: "i" };
+        if (location) query.location = { $regex: location, $options: "i" };
+
+        if (skills) {
+            const skillsArray = Array.isArray(skills)
+                ? skills
+                : skills.split(',').map((skill) => skill.trim().toLowerCase());
+
+            // Match any skill (case-insensitive)
+            query.skills = { $in: skillsArray.map(skill => new RegExp(skill, "i")) };
+        }
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const totalJobs = await Job.countDocuments(query);
+        const jobs = await Job.find(query)
+            .populate('postedBy', 'name email')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        return res.status(200).json({
+            success: true,
+            page,
+            totalPages: Math.ceil(totalJobs / limit),
+            totalJobs,
+            count: jobs.length,
+            jobs,
+        });
+
+    } catch (error) {
+        console.error("Error in getAllJobs:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
-
-    if (jobType) query.jobType = jobType.toLowerCase()
-    if (location) query.location = location
-
-    if (skills) {
-        const skillsArray = Array.isArray(skills) ? skills
-            : skills.split(',').map((skill) => skill.trim().toLowerCase())
-
-        query.skills = { $in: skillsArray }
-    }
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * 10;
-
-    const totalJobs = await Job.countDocuments(query);
-
-    const jobs = await Job.find(query)
-        .populate('postedBy', 'name email')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-
-    return res.status(200).json({
-        success: true,
-        page,
-        totalPages: Math.ceil(totalJobs / limit),
-        totalJobs,
-        count: jobs.length,
-        jobs,
-    });
-
 }
+
 
 async function getJobById(req, res) {
     try {
