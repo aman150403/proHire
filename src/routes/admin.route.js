@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  registerAdmin,
   getAllCandidates,
   deleteCandidateById,
   getAllRecruiters,
@@ -14,7 +15,9 @@ import { checkRole } from '../middlewares/checkRole.middleware.js';
 
 const adminRouter = express.Router();
 
-// Login route (no token required)
+// Register and Login route (no token required)
+
+adminRouter.post("/register", registerAdmin);
 adminRouter.post('/login', loginAdmin);
 
 // Protect all routes below

@@ -4,6 +4,56 @@ import { Recruiter } from "../models/recruiter.model.js";
 import { Admin } from '../models/admin.model.js';
 import { filterAndPaginate } from "../utils/filterAndPaginate.js";
 
+const registerAdmin = async (req, res) => {
+    try {
+        const { fullName, email, password } = req.body;
+
+        if (!fullName || !email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required",
+            });
+        }
+
+        const existingAdmin = await Admin.findOne({ email });
+        if (existingAdmin) {
+            return res.status(409).json({
+                success: false,
+                message: "Admin already exists with this email",
+            });
+        }
+
+        const admin = await Admin.create({
+            fullName,
+            email,
+            password,
+        });
+
+        const token = await admin.generateAccessToken();
+
+        const adminData = {
+            id: admin._id,
+            fullName: admin.fullName,
+            email: admin.email,
+            role: admin.role,
+        };
+
+        return res.status(201).json({
+            success: true,
+            message: "Admin registered successfully",
+            admin: adminData,
+            token,
+        });
+    } catch (err) {
+        console.error(err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};
+
 async function loginAdmin(req, res) {
     try {
         const { email, password } = req.body;
@@ -62,21 +112,30 @@ async function loginAdmin(req, res) {
 }
 
 async function getAllCandidates(req, res) {
-    const result = filterAndPaginate({
-        model: Candidate,
-        query: req.query,
-        searchableFields: [
-            'fullName',
-            'email',
-            'phoneNo',
-            'skills',
-            'education',
-            'experienceLevel',
-            'location'
-        ]
-    })
+    try {
+        const result = await filterAndPaginate({
+            model: Candidate,
+            query: req.query,
+            searchableFields: [
+                'fullName',
+                'email',
+                'phoneNo',
+                'skills',
+                'education',
+                'experienceLevel',
+                'location'
+            ]
+        });
 
-    return res.status(res.success ? 200 : 500).json(result)
+        return res.status(result.success ? 200 : 500).json(result);
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong",
+            error: error.message
+        });
+    }
 }
 
 async function deleteCandidateById(req, res) {
@@ -113,17 +172,26 @@ async function deleteCandidateById(req, res) {
 }
 
 async function getAllRecruiters(req, res) {
-    const result = filterAndPaginate({
-        model: Recruiter,
-        query: req.query,
-        searchableFields: [
-            'fullName',
-            'email',
-            'company'
-        ]
-    })
+    try {
+        const result = await filterAndPaginate({
+            model: Recruiter,
+            query: req.query,
+            searchableFields: [
+                'fullName',
+                'email',
+                'company'
+            ]
+        });
 
-    return res.status(res.success ? 200:500).json(result)
+        return res.status(result.success ? 200 : 500).json(result);
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong",
+            error: error.message
+        });
+    }
 }
 
 async function deleteRecruiterById(req, res) {
@@ -230,6 +298,7 @@ async function toggleJobStatus(req, res) {
 }
 
 export {
+    registerAdmin,
     loginAdmin,
     getAllCandidates,
     deleteCandidateById,

@@ -20,7 +20,7 @@ const adminSchema = new Schema(
         },
         role: {
             type: String,
-            default: true
+            default: 'admin'
         }
     },
     {

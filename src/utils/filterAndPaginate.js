@@ -30,7 +30,7 @@ async function filterAndPaginate({
             page: Number(page),
             limit: Number(limit),
             totalPages: Math.ceil(total / limit),
-            data
+            data: result 
         };
 
     } catch (error) {
