@@ -1,6 +1,7 @@
 import { Job } from "../models/job.model.js";
 import { Recruiter } from "../models/recruiter.model.js";
-import {uploadOnCloudinary} from '../utils/cloudinary.js'
+import { uploadOnCloudinary } from '../utils/cloudinary.js'
+import redisClient from "../utils/redis.js";
 
 async function registerRecruiter(req, res) {
     try {
@@ -71,9 +72,9 @@ async function loginRecruiter(req, res) {
                 success: false
             })
         }
-        
+
         const isMatch = await recruiter.comparePassword(password);
-        
+
         if (!isMatch) {
             return res.status(400).json({
                 message: 'Invalid  credentials',
@@ -152,6 +153,9 @@ async function updateRecruiterProfile(req, res,) {
                 success: false,
             });
         }
+
+        await redisClient.del(`recruiter_dashboard:{}{}`);
+        console.log("CACHE INVALIDATED: recruiter_dashboard:{}{}");
 
         return res.status(200).json({
             message: 'Recruiter profile updated successfully',
@@ -356,7 +360,7 @@ async function createJob(req, res) {
                 message: 'Only recruiters can post jobs',
             });
         }
-        
+
         const newJob = await Job.create({
             company,
             title,
@@ -494,7 +498,7 @@ async function getApplicantsForJob(req, res) {
         const recruiterId = req.user.id;
         const { id: jobId } = req.params;
 
-        const jobApplicants = await Job.findOne({_id: jobId, postedBy: recruiterId})
+        const jobApplicants = await Job.findOne({ _id: jobId, postedBy: recruiterId })
             .select('title applicants')
             .populate('applicants.candidateId', 'fullName email phoneNo resume profilePicture')
 

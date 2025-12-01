@@ -45,7 +45,6 @@ async function getAllJobs(req, res) {
     }
 }
 
-
 async function getJobById(req, res) {
     try {
         const jobId = req.params.id;

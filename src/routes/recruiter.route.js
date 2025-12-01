@@ -18,6 +18,7 @@ import {
 import { verifyJwt } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/checkRole.middleware.js';
 import { upload } from '../middlewares/multer.middleware.js';
+import { cache } from '../middlewares/cache.middleware.js';
 
 const recruiterRouter = express.Router();
 
@@ -28,7 +29,7 @@ recruiterRouter.get('/profile', verifyJwt, checkRole('recruiter', 'admin'), getR
 recruiterRouter.put('/profile', verifyJwt, checkRole('recruiter', 'admin'), upload.single('profilePicture'), updateRecruiterProfile);
 recruiterRouter.put('/profile/changepassword', verifyJwt, checkRole('recruiter', 'admin'), changeRecruiterPassword);
 recruiterRouter.delete('/profile', verifyJwt, checkRole('recruiter', 'admin'), deleteRecruiterAccount);
-recruiterRouter.get('/profile/dashboard', verifyJwt, checkRole('recruiter', 'admin'), getRecruiterProfileWithDashboard);
+recruiterRouter.get('/profile/dashboard', verifyJwt, checkRole('recruiter', 'admin'), cache('recruiter_dashboard:', 90), getRecruiterProfileWithDashboard);
 
 recruiterRouter.post('/jobs', verifyJwt, checkRole('recruiter', 'admin'), createJob);
 recruiterRouter.put('/jobs/:id', verifyJwt, checkRole('recruiter', 'admin'), updateJob);

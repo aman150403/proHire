@@ -12,6 +12,7 @@ import {
 
 import { verifyJwt } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/checkRole.middleware.js';
+import { cache } from '../middlewares/cache.middleware.js';
 
 const adminRouter = express.Router();
 
@@ -24,15 +25,15 @@ adminRouter.post('/login', loginAdmin);
 adminRouter.use(verifyJwt, checkRole('admin'));
 
 // 👤 Candidate Management
-adminRouter.get('/candidates', getAllCandidates);
+adminRouter.get('/candidates', cache('all_candidates:', 60), getAllCandidates);
 adminRouter.delete('/candidates/:id', deleteCandidateById);
 
 // 🧑‍💼 Recruiter Management
-adminRouter.get('/recruiters', getAllRecruiters);
+adminRouter.get('/recruiters', cache('all_recruiters:', 60), getAllRecruiters);
 adminRouter.delete('/recruiters/:id', deleteRecruiterById);
 
 // 💼 Job Management
-adminRouter.get('/jobs', getAllJobsAdmin);
+adminRouter.get('/jobs', cache('all_jobs:', 60), getAllJobsAdmin);
 adminRouter.put('/jobs/:id/status', toggleJobStatus); // e.g. activate/deactivate job posting
 
 export default adminRouter;
