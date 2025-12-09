@@ -3,6 +3,7 @@ import { Job } from "../models/job.model.js";
 import { Recruiter } from "../models/recruiter.model.js";
 import { Admin } from '../models/admin.model.js';
 import { filterAndPaginate } from "../utils/filterAndPaginate.js";
+import { invalidateByPrefix } from "../utils/cacheInvalidator.js";
 
 const registerAdmin = async (req, res) => {
     try {
@@ -158,6 +159,8 @@ async function deleteCandidateById(req, res) {
             })
         }
 
+        await invalidateByPrefix("admin:all-candidates:");
+
         return res.status(200).json({
             message: 'Candidate deleted successfully',
             success: true
@@ -213,6 +216,8 @@ async function deleteRecruiterById(req, res) {
                 success: false
             })
         }
+
+        await invalidateByPrefix("admin:all-recruiters:");
 
         return res.status(200).json({
             message: 'Recruiter deleted successfully',
@@ -281,6 +286,8 @@ async function toggleJobStatus(req, res) {
         job.isActive = !job.isActive;
 
         await job.save();
+
+        await invalidateByPrefix("admin:all-jobs:");
 
         return res.status(200).json({
             message: `Job is now ${job.isActive ? 'active' : 'inactive'}`,

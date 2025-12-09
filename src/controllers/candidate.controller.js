@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import { Candidate } from "../models/candidate.model.js";
 import { Job } from "../models/job.model.js"
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
+import { invalidateByPrefix } from "../utils/cacheInvalidator.js";
+import redisClient from "../utils/redis.js";
 
 async function candidateRegistration(req, res) {
     try {
@@ -35,6 +37,8 @@ async function candidateRegistration(req, res) {
                 status: 'unsuccessful'
             })
         }
+
+        await invalidateByPrefix("admin:all-candidates:");
 
         return res.status(201).json({
             message: 'User saved successfully',
@@ -231,6 +235,9 @@ async function updateCandidateProfile(req, res) {
             });
         }
 
+        await redisClient.del("candidate_profile:{}{}");
+        await invalidateByPrefix("admin:all-candidates:");
+
         return res.status(200).json({
             message: 'Candidate updated successfully',
             success: true,
@@ -291,6 +298,9 @@ async function uploadResume(req, res) {
             })
         }
 
+        await redisClient.del("candidate_profile:{}{}");
+        await invalidateByPrefix("admin:all-candidates:");
+
         return res.status(200).json({
             message: 'Resume uploaded successfully',
             success: true,
@@ -321,6 +331,8 @@ async function changePassword(req, res) {
         }
         candidate.password = newPassword;
         await candidate.save({ validateBeforeSave: false })
+
+        await redisClient.del("candidate_profile:{}{}");
 
         return res.status(200).json({
             message: 'Password changed successfully',
@@ -355,6 +367,10 @@ async function deleteCandidateAccount(req, res) {
                 success: false
             })
         }
+
+        await redisClient.del("candidate_applied_jobs:{}{}");
+        await redisClient.del("candidate_profile:{}{}");
+        await invalidateByPrefix("admin:all-candidates");
 
         return res.status(200).json({
             message: 'Candidate deleted successfully',
@@ -426,6 +442,8 @@ async function applyToJob(req, res) {
             status: 'applied'
         });
         await job.save();
+
+        await redisClient.del("candidate_applied_jobs:{}{}");
 
         return res.status(200).json({
             message: 'Applied to job successfully',

@@ -2,6 +2,7 @@ import { Job } from "../models/job.model.js";
 import { Recruiter } from "../models/recruiter.model.js";
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import redisClient from "../utils/redis.js";
+import { invalidateByPrefix } from "../utils/cacheInvalidator.js";
 
 async function registerRecruiter(req, res) {
     try {
@@ -37,6 +38,8 @@ async function registerRecruiter(req, res) {
                 success: false
             })
         }
+
+        await invalidateByPrefix("admin:all-recruiters:");
 
         return res.status(200).json({
             message: 'Recruiter registered successfully',
@@ -155,7 +158,8 @@ async function updateRecruiterProfile(req, res,) {
         }
 
         await redisClient.del(`recruiter_dashboard:{}{}`);
-        console.log("CACHE INVALIDATED: recruiter_dashboard:{}{}");
+
+        await invalidateByPrefix("admin:all-recruiters:");
 
         return res.status(200).json({
             message: 'Recruiter profile updated successfully',
@@ -200,27 +204,62 @@ async function getRecruiterProfile(req, res) {
 
 async function deleteRecruiterAccount(req, res) {
     try {
-        const id = req.user?.id;
+        const recruiterId = req.user?.id;
 
-        const recruiter = await Recruiter.findByIdAndDelete(id);
-
-        if (!recruiter) {
+        if (!recruiterId) {
             return res.status(400).json({
-                message: 'Recruiter not found',
-                success: false
-            })
+                success: false,
+                message: "Invalid recruiter ID"
+            });
         }
 
+        // 1️⃣ Find all jobs posted by the recruiter
+        const jobs = await Job.find({ postedBy: recruiterId }).select("_id");
+
+        // Collect IDs for deletion and cache invalidation
+        const jobIds = jobs.map(job => job._id.toString());
+
+        // 2️⃣ Delete all jobs posted by this recruiter
+        if (jobIds.length > 0) {
+            await Job.deleteMany({ _id: { $in: jobIds } });
+        }
+
+        // 3️⃣ Delete the recruiter account
+        const deletedRecruiter = await Recruiter.findByIdAndDelete(recruiterId);
+
+        if (!deletedRecruiter) {
+            return res.status(404).json({
+                success: false,
+                message: "Recruiter not found"
+            });
+        }
+
+        // 4️⃣ Invalidate job description cache for each deleted job
+        for (const id of jobIds) {
+            const cacheKey = `job_description:{"id":"${id}"}{}`;
+            await redisClient.del(cacheKey);
+        }
+
+        // 5️⃣ Invalidate all_jobs (jobs list cache)
+        await invalidateByPrefix("all_jobs:");
+
+        // 6️⃣ Invalidate recruiter dashboard
+        await redisClient.del("recruiter_dashboard:{}{}");
+        await invalidateByPrefix("admin:all-recruiters:");
+
         return res.status(200).json({
-            message: 'Recruiter profile deleted successfully',
-            success: true
-        })
+            success: true,
+            message: "Recruiter account and all related jobs deleted successfully"
+        });
+
     } catch (error) {
+        console.error("Error in deleteRecruiterAccount:", error);
+
         return res.status(500).json({
-            message: 'SOmething went wromg',
             success: false,
+            message: "Something went wrong",
             error: error.message
-        })
+        });
     }
 }
 
@@ -375,6 +414,10 @@ async function createJob(req, res) {
             postedBy: req.user.id,
         });
 
+        await redisClient.del("recruiter_dashboard:{}{}")
+        await invalidateByPrefix("all_jobs:")
+        await invalidateByPrefix("admin:all-jobs:");
+
         return res.status(201).json({
             success: true,
             message: 'Job created successfully',
@@ -445,6 +488,11 @@ async function updateJob(req, res) {
             })
         }
 
+        await redisClient.del("recruiter_dashboard:{}{}")
+        await invalidateByPrefix("all_jobs:")
+        await redisClient.del(`job_description:{"id":"${req.params.id}"}{}`);
+        await invalidateByPrefix("admin:all-jobs:");
+
         return res.status(200).json({
             message: 'Job updated successfully',
             success: true,
@@ -479,6 +527,12 @@ async function deleteJob(req, res) {
                 success: false
             })
         }
+
+        await redisClient.del("recruiter_dashboard:{}{}")
+        await invalidateByPrefix("all_jobs:")
+        await redisClient.del(`job_description:{"id":"${req.params.id}"}{}`);
+        await redisClient.del("candidate_applied_jobs:{}{}");
+        await invalidateByPrefix("admin:all-jobs:");
 
         return res.status(200).json({
             message: 'Job deleted successfully',
@@ -557,6 +611,10 @@ async function updateApplicantStatus(req, res) {
 
         applicant.status = status;
         await job.save();
+
+        await redisClient.del("recruiter_dashboard:{}{}");
+        await redisClient.del(`job_description:{"id":"${req.params.jobId}"}{}`);
+        await redisClient.del("candidate_applied_jobs:{}{}");
 
         return res.status(200).json({
             message: 'Applicants successfully found',

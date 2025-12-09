@@ -25,15 +25,15 @@ adminRouter.post('/login', loginAdmin);
 adminRouter.use(verifyJwt, checkRole('admin'));
 
 // 👤 Candidate Management
-adminRouter.get('/candidates', cache('all_candidates:', 60), getAllCandidates);
+adminRouter.get('/candidates', cache('admin:all-candidates:', 60), getAllCandidates);
 adminRouter.delete('/candidates/:id', deleteCandidateById);
 
 // 🧑‍💼 Recruiter Management
-adminRouter.get('/recruiters', cache('all_recruiters:', 60), getAllRecruiters);
+adminRouter.get('/recruiters', cache('admin:all-recruiters:', 60), getAllRecruiters);
 adminRouter.delete('/recruiters/:id', deleteRecruiterById);
 
 // 💼 Job Management
-adminRouter.get('/jobs', cache('all_jobs:', 60), getAllJobsAdmin);
+adminRouter.get('/jobs', cache('admin:all-jobs:', 60), getAllJobsAdmin);
 adminRouter.put('/jobs/:id/status', toggleJobStatus); // e.g. activate/deactivate job posting
 
 export default adminRouter;
